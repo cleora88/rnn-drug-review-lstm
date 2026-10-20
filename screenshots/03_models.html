@@ -1,0 +1,55 @@
+<!doctype html><meta charset="utf-8"><style>body{font:18px Arial;background:#f5f7fb;color:#18314e;margin:40px;max-width:1160px}h1{font-size:34px}h2{font-size:24px;color:#216a8d}pre{background:white;border-left:4px solid #216a8d;padding:22px;white-space:pre-wrap;font:15px Consolas;line-height:1.5}img{max-width:100%;margin:20px 0}footer{color:#52677d;font-size:14px}</style><h1>RNN lab project / 03 models</h1><p>Zouhair Eouichak / TP B / UIR 2026-2027</p><h2>Equation, gradient and padding checks</h2><pre>vanilla : equations, gradients and padding passed
+cifg : equations, gradients and padding passed
+wmc : equations, gradients and padding passed
+</pre><h2>Manual cell implementation</h2><pre>&quot;&quot;&quot;Manual cells following the assignment equations; no built-in LSTM.&quot;&quot;&quot;
+import torch
+from torch import nn
+
+class Cell(nn.Module):
+    def __init__(self, input_size, hidden_size, kind):
+        super().__init__()
+        self.kind, self.hidden_size = kind, hidden_size
+        gates = 3 if kind == &#x27;cifg&#x27; else 4
+        self.x = nn.Linear(input_size, gates * hidden_size)
+        self.h = nn.Linear(hidden_size, gates * hidden_size, bias=False)
+        if kind == &#x27;wmc&#x27;:
+            self.ci = nn.Linear(hidden_size, hidden_size, bias=False)
+            self.cf = nn.Linear(hidden_size, hidden_size, bias=False)
+            self.co = nn.Linear(hidden_size, hidden_size, bias=False)
+
+    def forward(self, x, state):
+        h, c = state
+        gates = (self.x(x) + self.h(h)).chunk(3 if self.kind == &#x27;cifg&#x27; else 4, -1)
+        if self.kind == &#x27;cifg&#x27;:
+            f, o, g = gates
+            f = f.sigmoid()
+            i = 1 - f
+        else:
+            i, f, o, g = gates
+            if self.kind == &#x27;wmc&#x27;:
+                i = i + self.ci(c).tanh()
+                f = f + self.cf(c).tanh()
+            i, f = i.sigmoid(), f.sigmoid()
+        c = f * c + i * g.tanh()
+        if self.kind == &#x27;wmc&#x27;:
+            o = o + self.co(c).tanh()
+        return o.sigmoid() * c.tanh(), c
+
+class Classifier(nn.Module):
+    def __init__(self, vocab_size, kind, embedding=64, hidden=64):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding, padding_idx=0)
+        self.cell = Cell(embedding, hidden, kind)
+        self.dropout = nn.Dropout(0.2)
+        self.output = nn.Linear(hidden, 3)
+
+    def forward(self, tokens):
+        embedded = self.embedding(tokens)
+        h = embedded.new_zeros(tokens.size(0), self.cell.hidden_size)
+        c = torch.zeros_like(h)
+        for t in range(tokens.size(1)):
+            hn, cn = self.cell(embedded[:, t], (h, c))
+            mask = (tokens[:, t] != 0).unsqueeze(1)
+            h, c = torch.where(mask, hn, h), torch.where(mask, cn, c)
+        return self.output(self.dropout(h))
+</pre><footer>Browser screenshot of actual saved code, validation logs and experiment outputs. This page is an evidence viewer.</footer>

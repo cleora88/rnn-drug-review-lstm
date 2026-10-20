@@ -1,0 +1,107 @@
+<!doctype html><meta charset="utf-8"><style>body{font:18px Arial;background:#f5f7fb;color:#18314e;margin:40px;max-width:1160px}h1{font-size:34px}h2{font-size:24px;color:#216a8d}pre{background:white;border-left:4px solid #216a8d;padding:22px;white-space:pre-wrap;font:15px Consolas;line-height:1.5}img{max-width:100%;margin:20px 0}footer{color:#52677d;font-size:14px}</style><h1>RNN lab project / 04 training</h1><p>Zouhair Eouichak / TP B / UIR 2026-2027</p><h2>Actual training output</h2><pre>Environment: cuda
+{
+  &quot;original&quot;: {
+    &quot;train&quot;: 161297,
+    &quot;test&quot;: 53766
+  },
+  &quot;removed_test_overlap&quot;: 32114,
+  &quot;cleaned_train&quot;: 112225,
+  &quot;cleaned_test&quot;: 16123,
+  &quot;splits&quot;: {
+    &quot;train&quot;: {
+      &quot;size&quot;: 12000,
+      &quot;classes&quot;: {
+        &quot;0&quot;: 2975,
+        &quot;1&quot;: 1068,
+        &quot;2&quot;: 7957
+      }
+    },
+    &quot;validation&quot;: {
+      &quot;size&quot;: 2000,
+      &quot;classes&quot;: {
+        &quot;0&quot;: 496,
+        &quot;1&quot;: 178,
+        &quot;2&quot;: 1326
+      }
+    },
+    &quot;test&quot;: {
+      &quot;size&quot;: 4000,
+      &quot;classes&quot;: {
+        &quot;0&quot;: 988,
+        &quot;1&quot;: 356,
+        &quot;2&quot;: 2656
+      }
+    }
+  },
+  &quot;vocabulary&quot;: 12000,
+  &quot;max_length&quot;: 96,
+  &quot;labels&quot;: {
+    &quot;0&quot;: &quot;negative (1-4)&quot;,
+    &quot;1&quot;: &quot;neutral (5-6)&quot;,
+    &quot;2&quot;: &quot;positive (7-10)&quot;
+  },
+  &quot;train_truncation_fraction&quot;: 0.434
+}
+vanilla 0.001 128 {&#x27;epoch&#x27;: 1, &#x27;loss&#x27;: 1.0974155740737914, &#x27;accuracy&#x27;: 0.387, &#x27;macro_f1&#x27;: 0.3288800245220082}
+vanilla 0.001 128 {&#x27;epoch&#x27;: 2, &#x27;loss&#x27;: 1.076291348775228, &#x27;accuracy&#x27;: 0.421, &#x27;macro_f1&#x27;: 0.35208970045602445}
+vanilla 0.001 128 {&#x27;epoch&#x27;: 3, &#x27;loss&#x27;: 1.034843373298645, &#x27;accuracy&#x27;: 0.586, &#x27;macro_f1&#x27;: 0.45565337500301456}
+vanilla 0.001 128 {&#x27;epoch&#x27;: 4, &#x27;loss&#x27;: 0.9450478574434916, &#x27;accuracy&#x27;: 0.538, &#x27;macro_f1&#x27;: 0.4455309861604994}
+vanilla 0.003 128 {&#x27;epoch&#x27;: 1, &#x27;loss&#x27;: 1.095364151318868, &#x27;accuracy&#x27;: 0.4065, &#x27;macro_f1&#x27;: 0.34709808670863157}
+vanilla 0.003 128 {&#x27;epoch&#x27;: 2, &#x27;loss&#x27;: 1.013302882830302, &#x27;accuracy&#x27;: 0.4845, &#x27;macro_f1&#x27;: 0.4084198604557692}
+vanilla 0.003 128 {&#x27;epoch&#x27;: 3, &#x27;loss&#x27;: 0.8753115595181783, &#x27;accuracy&#x27;: 0.5855, &#x27;macro_f1&#x27;: 0.4690837798710959}
+vanilla 0.003 128 {&#x27;epoch&#x27;: 4, &#x27;loss&#x27;: 0.7098263266881307, &#x27;accuracy&#x27;: 0.641, &#x27;macro_f1&#x27;: 0.4827903533370879}
+vanilla 0.001 64 {&#x27;epoch&#x27;: 1, &#x27;loss&#x27;: 1.096650429725647, &#x27;accuracy&#x27;: 0.393, &#x27;macro_f1&#x27;: 0.3344133967781287}
+vanilla 0.001 64 {&#x27;epoch&#x27;: 2, &#x27;loss&#x27;: 1.0651094512939454, &#x27;accuracy&#x27;: 0.4915, &#x27;macro_f1&#x27;: 0.41081341819692874}
+vanilla 0.001 64 {&#x27;epoch&#x27;: 3, &#x27;loss&#x27;: 0.9737617038091024, &#x27;accuracy&#x27;: 0.558, &#x27;macro_f1&#x27;: 0.4595110017405983}
+vanilla 0.001 64 {&#x27;epoch&#x27;: 4, &#x27;loss&#x27;: 0.8669304114977519, &#x27;accuracy&#x27;: 0.5935, &#x27;macro_f1&#x27;: 0.48590804364619383}
+cifg 0.001 128 {&#x27;epoch&#x27;: 1, &#x27;loss&#x27;: 1.0991432139078776, &#x27;accuracy&#x27;: 0.411, &#x27;macro_f1&#x27;: 0.33980335416744795}
+cifg 0.001 128 {&#x27;epoch&#x27;: 2, &#x27;loss&#x27;: 1.0788319854736328, &#x27;accuracy&#x27;: 0.4615, &#x27;macro_f1&#x27;: 0.3714121231825643}
+cifg 0.001 128 {&#x27;epoch&#x27;: 3, &#x27;loss&#x27;: 1.0243833424250284, &#x27;accuracy&#x27;: 0.469, &#x27;macro_f1&#x27;: 0.39769587628062913}
+cifg 0.001 128 {&#x27;epoch&#x27;: 4, &#x27;loss&#x27;: 0.9461146745681762, &#x27;accuracy&#x27;: 0.656, &#x27;macro_f1&#x27;: 0.4980697393068527}
+cifg 0.003 128 {&#x27;epoch&#x27;: 1, &#x27;loss&#x27;: 1.0940399888356527, &#x27;accuracy&#x27;: 0.544, &#x27;macro_f1&#x27;: 0.3869630413423022}
+cifg 0.003 128 {&#x27;epoch&#x27;: 2, &#x27;loss&#x27;: 1.01832261578242, &#x27;accuracy&#x27;: 0.5795, &#x27;macro_f1&#x27;: 0.46080530529350877}
+cifg 0.003 128 {&#x27;epoch&#x27;: 3, &#x27;loss&#x27;: 0.8874716262817383, &#x27;accuracy&#x27;: 0.5285, &#x27;macro_f1&#x27;: 0.4498915541940314}
+cifg 0.003 128 {&#x27;epoch&#x27;: 4, &#x27;loss&#x27;: 0.7529079645474752, &#x27;accuracy&#x27;: 0.6575, &#x27;macro_f1&#x27;: 0.500298089680915}
+cifg 0.001 64 {&#x27;epoch&#x27;: 1, &#x27;loss&#x27;: 1.0967789821624756, &#x27;accuracy&#x27;: 0.4665, &#x27;macro_f1&#x27;: 0.35997435484569973}
+cifg 0.001 64 {&#x27;epoch&#x27;: 2, &#x27;loss&#x27;: 1.0527633665402731, &#x27;accuracy&#x27;: 0.594, &#x27;macro_f1&#x27;: 0.44439183332137544}
+cifg 0.001 64 {&#x27;epoch&#x27;: 3, &#x27;loss&#x27;: 0.9640272715886434, &#x27;accuracy&#x27;: 0.6425, &#x27;macro_f1&#x27;: 0.48734953576516865}
+cifg 0.001 64 {&#x27;epoch&#x27;: 4, &#x27;loss&#x27;: 0.8795160106023152, &#x27;accuracy&#x27;: 0.657, &#x27;macro_f1&#x27;: 0.513224986781088}
+wmc 0.001 128 {&#x27;epoch&#x27;: 1, &#x27;loss&#x27;: 1.0963919067382812, &#x27;accuracy&#x27;: 0.4005, &#x27;macro_f1&#x27;: 0.33513070712173115}
+wmc 0.001 128 {&#x27;epoch&#x27;: 2, &#x27;loss&#x27;: 1.0681157267888388, &#x27;accuracy&#x27;: 0.426, &#x27;macro_f1&#x27;: 0.35578944680375874}
+wmc 0.001 128 {&#x27;epoch&#x27;: 3, &#x27;loss&#x27;: 1.0002272612253824, &#x27;accuracy&#x27;: 0.605, &#x27;macro_f1&#x27;: 0.45596513168038216}
+wmc 0.001 128 {&#x27;epoch&#x27;: 4, &#x27;loss&#x27;: 0.9159194598197937, &#x27;accuracy&#x27;: 0.6535, &#x27;macro_f1&#x27;: 0.48270991807495606}
+wmc 0.003 128 {&#x27;epoch&#x27;: 1, &#x27;loss&#x27;: 1.0908787673314413, &#x27;accuracy&#x27;: 0.644, &#x27;macro_f1&#x27;: 0.3982767908980182}
+wmc 0.003 128 {&#x27;epoch&#x27;: 2, &#x27;loss&#x27;: 1.024333428700765, &#x27;accuracy&#x27;: 0.558, &#x27;macro_f1&#x27;: 0.4515360835691829}
+wmc 0.003 128 {&#x27;epoch&#x27;: 3, &#x27;loss&#x27;: 0.8855059912999471, &#x27;accuracy&#x27;: 0.5135, &#x27;macro_f1&#x27;: 0.4386139454784506}
+wmc 0.003 128 {&#x27;epoch&#x27;: 4, &#x27;loss&#x27;: 0.7110601827303569, &#x27;accuracy&#x27;: 0.641, &#x27;macro_f1&#x27;: 0.4912602210165153}
+wmc 0.001 64 {&#x27;epoch&#x27;: 1, &#x27;loss&#x27;: 1.0944101324081421, &#x27;accuracy&#x27;: 0.4575, &#x27;macro_f1&#x27;: 0.3543129674860704}
+wmc 0.001 64 {&#x27;epoch&#x27;: 2, &#x27;loss&#x27;: 1.0439149661064149, &#x27;accuracy&#x27;: 0.4515, &#x27;macro_f1&#x27;: 0.37622537697671915}
+wmc 0.001 64 {&#x27;epoch&#x27;: 3, &#x27;loss&#x27;: 0.9558046649297078, &#x27;accuracy&#x27;: 0.578, &#x27;macro_f1&#x27;: 0.46676410965251147}
+wmc 0.001 64 {&#x27;epoch&#x27;: 4, &#x27;loss&#x27;: 0.853112491607666, &#x27;accuracy&#x27;: 0.6165, &#x27;macro_f1&#x27;: 0.4909612700606932}
+COMPLETE [
+  {
+    &quot;model&quot;: &quot;vanilla&quot;,
+    &quot;learning_rate&quot;: 0.001,
+    &quot;batch_size&quot;: 64,
+    &quot;parameters&quot;: 801219,
+    &quot;accuracy&quot;: 0.58875,
+    &quot;macro_f1&quot;: 0.4744798191937389
+  },
+  {
+    &quot;model&quot;: &quot;cifg&quot;,
+    &quot;learning_rate&quot;: 0.001,
+    &quot;batch_size&quot;: 64,
+    &quot;parameters&quot;: 792963,
+    &quot;accuracy&quot;: 0.6395,
+    &quot;macro_f1&quot;: 0.5000759382970714
+  },
+  {
+    &quot;model&quot;: &quot;wmc&quot;,
+    &quot;learning_rate&quot;: 0.003,
+    &quot;batch_size&quot;: 128,
+    &quot;parameters&quot;: 813507,
+    &quot;accuracy&quot;: 0.62925,
+    &quot;macro_f1&quot;: 0.49235932903632756
+  }
+]
+</pre><footer>Browser screenshot of actual saved code, validation logs and experiment outputs. This page is an evidence viewer.</footer>

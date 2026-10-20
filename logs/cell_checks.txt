@@ -1,0 +1,3 @@
+vanilla : equations, gradients and padding passed
+cifg : equations, gradients and padding passed
+wmc : equations, gradients and padding passed

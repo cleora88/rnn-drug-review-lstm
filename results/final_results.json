@@ -1,0 +1,26 @@
+[
+  {
+    "model": "vanilla",
+    "learning_rate": 0.001,
+    "batch_size": 64,
+    "parameters": 801219,
+    "accuracy": 0.58875,
+    "macro_f1": 0.4744798191937389
+  },
+  {
+    "model": "cifg",
+    "learning_rate": 0.001,
+    "batch_size": 64,
+    "parameters": 792963,
+    "accuracy": 0.6395,
+    "macro_f1": 0.5000759382970714
+  },
+  {
+    "model": "wmc",
+    "learning_rate": 0.003,
+    "batch_size": 128,
+    "parameters": 813507,
+    "accuracy": 0.62925,
+    "macro_f1": 0.49235932903632756
+  }
+]

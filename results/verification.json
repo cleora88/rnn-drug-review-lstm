@@ -1,0 +1,8 @@
+{
+  "experiments": 9,
+  "epochs_per_run": 4,
+  "disjoint_normalized_text": true,
+  "prediction_metrics_recomputed": true,
+  "parameter_counts_verified": true,
+  "selection_matches_validation": true
+}

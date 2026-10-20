@@ -1,0 +1,12 @@
+.venv*/
+.build/
+.chart-data-*/
+rnn_drug_review/
+data/
+__pycache__/
+results/*.pt
+results/*_split.csv
+results/*_predictions.csv
+results/error_examples.csv
+results/error_analysis.md
+screenshots/00*

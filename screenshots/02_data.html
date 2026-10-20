@@ -1,0 +1,54 @@
+<!doctype html><meta charset="utf-8"><style>body{font:18px Arial;background:#f5f7fb;color:#18314e;margin:40px;max-width:1160px}h1{font-size:34px}h2{font-size:24px;color:#216a8d}pre{background:white;border-left:4px solid #216a8d;padding:22px;white-space:pre-wrap;font:15px Consolas;line-height:1.5}img{max-width:100%;margin:20px 0}footer{color:#52677d;font-size:14px}</style><h1>RNN lab project / 02 data</h1><p>Zouhair Eouichak / TP B / UIR 2026-2027</p><h2>Dataset download provenance</h2><pre>{
+  &quot;drugsComTest_raw.tsv&quot;: {
+    &quot;sha256&quot;: &quot;1953e81451b3a43f162e3d438dc1f9c2ee83c9283968a19fce4d3736fdb03eac&quot;,
+    &quot;rows&quot;: 53766,
+    &quot;download_source&quot;: &quot;https://raw.githubusercontent.com/semnan-university-ai/Drug-Review-Dataset/master/drugsComTest_raw.tsv&quot;
+  },
+  &quot;drugsComTrain_raw.tsv&quot;: {
+    &quot;sha256&quot;: &quot;83992773f0f42b20b8c9798767e0f2ce5cf3428c721ee56176d65573d76455e4&quot;,
+    &quot;rows&quot;: 161297,
+    &quot;download_source&quot;: &quot;https://raw.githubusercontent.com/semnan-university-ai/Drug-Review-Dataset/master/drugsComTrain_raw.tsv&quot;
+  }
+}</pre><h2>Dataset and fixed splits</h2><pre>{
+  &quot;original&quot;: {
+    &quot;train&quot;: 161297,
+    &quot;test&quot;: 53766
+  },
+  &quot;removed_test_overlap&quot;: 32114,
+  &quot;cleaned_train&quot;: 112225,
+  &quot;cleaned_test&quot;: 16123,
+  &quot;splits&quot;: {
+    &quot;train&quot;: {
+      &quot;size&quot;: 12000,
+      &quot;classes&quot;: {
+        &quot;0&quot;: 2975,
+        &quot;1&quot;: 1068,
+        &quot;2&quot;: 7957
+      }
+    },
+    &quot;validation&quot;: {
+      &quot;size&quot;: 2000,
+      &quot;classes&quot;: {
+        &quot;0&quot;: 496,
+        &quot;1&quot;: 178,
+        &quot;2&quot;: 1326
+      }
+    },
+    &quot;test&quot;: {
+      &quot;size&quot;: 4000,
+      &quot;classes&quot;: {
+        &quot;0&quot;: 988,
+        &quot;1&quot;: 356,
+        &quot;2&quot;: 2656
+      }
+    }
+  },
+  &quot;vocabulary&quot;: 12000,
+  &quot;max_length&quot;: 96,
+  &quot;labels&quot;: {
+    &quot;0&quot;: &quot;negative (1-4)&quot;,
+    &quot;1&quot;: &quot;neutral (5-6)&quot;,
+    &quot;2&quot;: &quot;positive (7-10)&quot;
+  },
+  &quot;train_truncation_fraction&quot;: 0.434
+}</pre><img src="file:///C:/Users/User/Documents/New%20project/rnn_drug_review/results/eda.png"><footer>Browser screenshot of actual saved code, validation logs and experiment outputs. This page is an evidence viewer.</footer>

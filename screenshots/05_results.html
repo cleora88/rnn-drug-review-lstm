@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><style>body{font:18px Arial;background:#f5f7fb;color:#18314e;margin:40px;max-width:1160px}h1{font-size:34px}h2{font-size:24px;color:#216a8d}pre{background:white;border-left:4px solid #216a8d;padding:22px;white-space:pre-wrap;font:15px Consolas;line-height:1.5}img{max-width:100%;margin:20px 0}footer{color:#52677d;font-size:14px}</style><h1>RNN lab project / 05 results</h1><p>Zouhair Eouichak / TP B / UIR 2026-2027</p><h2>Held-out test comparison</h2><pre>model,learning_rate,batch_size,parameters,accuracy,macro_f1
+vanilla,0.001,64,801219,0.58875,0.4744798191937389
+cifg,0.001,64,792963,0.6395,0.5000759382970714
+wmc,0.003,128,813507,0.62925,0.49235932903632756
+</pre><h2>Majority baseline</h2><pre>{
+  &quot;majority_accuracy&quot;: 0.664,
+  &quot;majority_macro_f1&quot;: 0.266025641025641
+}</pre><img src="../results/learning_curves.png"><img src="../results/vanilla_confusion.png"><img src="../results/cifg_confusion.png"><img src="../results/wmc_confusion.png"><footer>Browser screenshot of actual saved code, validation logs and experiment outputs. This page is an evidence viewer.</footer>
