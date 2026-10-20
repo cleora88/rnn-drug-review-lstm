@@ -1,122 +1,347 @@
-import os, re, html, json, random, time, copy, platform
+"""Train and compare manual LSTM cells on rating-derived review sentiment."""
+
+import argparse
+import copy
+import json
+import platform
+import random
+import time
+from dataclasses import dataclass
 from pathlib import Path
-from collections import Counter
+
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.metrics import accuracy_score, classification_report, f1_score
+from sklearn.model_selection import train_test_split
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score, classification_report, confusion_matrix
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from models import Classifier
 
-ROOT = Path(__file__).parent
-os.chdir(ROOT)
-Path('results').mkdir(exist_ok=True)
-def save(name, value):
-    Path('results', name+'.json').write_text(json.dumps(value, indent=2), encoding='utf-8')
-def clean(s):
-    return ' '.join(re.findall(r"[a-z]+(?:'[a-z]+)?|[0-9]+|[!?]", html.unescape(str(s)).lower()))
-def seed(n=42):
-    random.seed(n); np.random.seed(n); torch.manual_seed(n)
-    if torch.cuda.is_available(): torch.cuda.manual_seed_all(n)
+from models import CELL_TYPES, Classifier
+from preprocessing import (
+    CLASS_NAMES,
+    MAX_LENGTH,
+    build_vocabulary,
+    clean,
+    encode_dataset,
+    stratified_subset,
+)
 
-def main():
-    seed(); torch.set_num_threads(4)
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    save('environment', dict(python=platform.python_version(), torch=torch.__version__, device=device,
-        gpu=torch.cuda.get_device_name(0) if device=='cuda' else None))
-    print('Environment:', device, flush=True)
-    train = pd.read_csv('data/drugsComTrain_raw.tsv', sep='\t')
-    test = pd.read_csv('data/drugsComTest_raw.tsv', sep='\t')
-    original = dict(train=len(train), test=len(test))
-    for df in (train,test):
-        df['text'] = df.review.map(clean)
-        df['label'] = np.select([df.rating<=4, df.rating<=6], [0,1], default=2)
-    train = train[train.text.str.len()>0].drop_duplicates('text').copy()
-    test = test[test.text.str.len()>0].drop_duplicates('text').copy()
-    overlap = test.text.isin(set(train.text))
-    overlap_count = int(overlap.sum()); test = test[~overlap].copy()
-    tr, va = train_test_split(train, test_size=.15, stratify=train.label, random_state=42)
-    # Fixed stratified subsets make manual recurrent-cell experiments practical locally.
-    def subset(df, n):
-        return train_test_split(df, train_size=n, stratify=df.label, random_state=42)[0] if len(df)>n else df
-    tr, va, te = subset(tr,12000), subset(va,2000), subset(test,4000)
-    vocab = {'<pad>':0,'<unk>':1}
-    vocab.update({w:i+2 for i,(w,_) in enumerate(Counter(' '.join(tr.text).split()).most_common(11998))})
-    save('vocabulary',vocab)
-    splits = {'train':tr,'validation':va,'test':te}
-    for name,df in splits.items(): df.to_csv('results/'+name+'_split.csv',index=False)
-    eda = dict(original=original, removed_test_overlap=overlap_count, cleaned_train=len(train),cleaned_test=len(test),
-        splits={n:dict(size=len(d),classes={str(k):int(v) for k,v in d.label.value_counts().sort_index().items()}) for n,d in splits.items()},
-        vocabulary=len(vocab),max_length=96,labels={'0':'negative (1-4)','1':'neutral (5-6)','2':'positive (7-10)'},
-        train_truncation_fraction=float((tr.text.str.split().str.len()>96).mean()))
-    save('data_summary',eda); print(json.dumps(eda,indent=2),flush=True)
-    fig,axes=plt.subplots(1,2,figsize=(11,4))
-    tr.label.value_counts().sort_index().plot.bar(ax=axes[0],color=['#dc6262','#e5b44d','#49a58d'])
-    axes[0].set(xticklabels=['Negative','Neutral','Positive'],title='Training class distribution',ylabel='Reviews')
-    axes[1].hist(tr.text.str.split().str.len(),bins=45,color='#386bac'); axes[1].axvline(96,color='red',label='96-token limit'); axes[1].legend(); axes[1].set(title='Review lengths',xlabel='Tokens')
-    fig.tight_layout(); fig.savefig('results/eda.png',dpi=160); plt.close(fig)
-    def encode(df):
-        x=torch.zeros((len(df),96),dtype=torch.long)
-        for j,s in enumerate(df.text):
-            ids=[vocab.get(w,1) for w in s.split()[:96]]; x[j,:len(ids)]=torch.tensor(ids)
-        return TensorDataset(x,torch.tensor(df.label.to_numpy(),dtype=torch.long))
-    datasets={n:encode(d) for n,d in splits.items()}
-    weights=torch.tensor(len(tr)/(3*np.bincount(tr.label)),dtype=torch.float32,device=device)
-    criterion=nn.CrossEntropyLoss(weight=weights)
-    def evaluate(model, name):
-        model.eval(); ys=[]; ps=[]
-        with torch.no_grad():
-            for x,y in DataLoader(datasets[name],batch_size=256):
-                ps.extend(model(x.to(device)).argmax(1).cpu().tolist()); ys.extend(y.tolist())
-        return dict(accuracy=accuracy_score(ys,ps),macro_f1=f1_score(ys,ps,average='macro',zero_division=0)),ys,ps
-    runs=[]; finalists={}
-    for kind in ['vanilla','cifg','wmc']:
-        best=-1
-        for lr,batch_size in [(.001,128),(.003,128),(.001,64)]:
-            seed(); model=Classifier(len(vocab),kind).to(device)
-            optimizer=torch.optim.Adam(model.parameters(),lr=lr)
-            history=[]; best_state=None; best_score=-1; started=time.time()
-            for epoch in range(1,5):
-                model.train(); total=0
-                for x,y in DataLoader(datasets['train'],batch_size=batch_size,shuffle=True):
-                    x,y=x.to(device),y.to(device); optimizer.zero_grad()
-                    loss=criterion(model(x),y); loss.backward(); nn.utils.clip_grad_norm_(model.parameters(),1.)
-                    optimizer.step(); total+=loss.item()*len(y)
-                metrics,_,_=evaluate(model,'validation')
-                history.append(dict(epoch=epoch,loss=total/len(tr),**metrics))
-                print(kind,lr,batch_size,history[-1],flush=True)
-                if metrics['macro_f1']>best_score:
-                    best_score=metrics['macro_f1']; best_state=copy.deepcopy(model.state_dict())
-                save('progress',dict(model=kind,learning_rate=lr,batch_size=batch_size,history=history))
-            run=dict(model=kind,learning_rate=lr,batch_size=batch_size,optimizer='Adam',initialization='PyTorch defaults',
-                seed=42,epochs=4,embedding=64,hidden=64,parameters=sum(p.numel() for p in model.parameters()),
-                best_validation_macro_f1=best_score,seconds=time.time()-started,history=history)
-            runs.append(run); save('experiments',runs)
-            if best_score>best:
-                best=best_score; finalists[kind]=(run,best_state)
-        torch.save(finalists[kind][1],'results/'+kind+'.pt')
-    # Only selected configurations are evaluated on the held-out test set.
-    final=[]
-    for kind,(run,state) in finalists.items():
-        model=Classifier(len(vocab),kind).to(device); model.load_state_dict(state)
-        metrics,ys,ps=evaluate(model,'test')
-        final.append(dict(model=kind,learning_rate=run['learning_rate'],batch_size=run['batch_size'],parameters=run['parameters'],**metrics))
-        save(kind+'_classification',classification_report(ys,ps,target_names=['negative','neutral','positive'],output_dict=True,zero_division=0))
-        pd.DataFrame(dict(text=te.text.tolist(),actual=ys,predicted=ps)).to_csv('results/'+kind+'_predictions.csv',index=False)
-        fig,ax=plt.subplots(figsize=(5,4)); cm=confusion_matrix(ys,ps); ax.imshow(cm,cmap='Blues')
-        for (i,j),v in np.ndenumerate(cm): ax.text(j,i,str(v),ha='center',va='center')
-        ax.set(xticks=range(3),yticks=range(3),xticklabels=['Neg','Neu','Pos'],yticklabels=['Neg','Neu','Pos'],xlabel='Predicted',ylabel='Actual',title=kind.upper()+' test confusion matrix')
-        fig.tight_layout();fig.savefig('results/'+kind+'_confusion.png',dpi=150);plt.close(fig)
-    save('final_results',final); pd.DataFrame(final).to_csv('results/comparison.csv',index=False)
-    fig,ax=plt.subplots(figsize=(9,4))
-    for run in runs: ax.plot([h['epoch'] for h in run['history']],[h['macro_f1'] for h in run['history']],label=f"{run['model']} lr={run['learning_rate']} bs={run['batch_size']}")
-    ax.set(xlabel='Epoch',ylabel='Validation macro-F1',title='Architecture and learning-rate comparison');ax.legend();fig.tight_layout();fig.savefig('results/learning_curves.png',dpi=160);plt.close(fig)
-    save('baseline',dict(majority_accuracy=float((te.label==tr.label.mode()[0]).mean()),majority_macro_f1=f1_score(te.label,[tr.label.mode()[0]]*len(te),average='macro')))
-    print('COMPLETE',json.dumps(final,indent=2),flush=True)
+ROOT = Path(__file__).resolve().parent
+HYPERPARAMETERS = ((0.001, 128), (0.003, 128), (0.001, 64))
 
-if __name__=='__main__': main()
+
+@dataclass(frozen=True)
+class ExperimentConfig:
+    data_dir: Path = ROOT / "data"
+    output_dir: Path = ROOT / "results"
+    train_size: int = 12_000
+    validation_size: int = 2_000
+    test_size: int = 4_000
+    epochs: int = 4
+    seed: int = 42
+
+
+def save_json(output_dir: Path, name: str, value: object) -> None:
+    (output_dir / f"{name}.json").write_text(
+        json.dumps(value, indent=2), encoding="utf-8"
+    )
+
+
+def set_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def prepare_data(
+    config: ExperimentConfig,
+) -> tuple[dict[str, pd.DataFrame], dict[str, int], dict]:
+    frames = {}
+    for name, filename in (
+        ("train", "drugsComTrain_raw.tsv"),
+        ("test", "drugsComTest_raw.tsv"),
+    ):
+        source = config.data_dir / filename
+        if not source.exists():
+            raise FileNotFoundError(f"Dataset file not found: {source}. See setup.ps1.")
+        frame = pd.read_csv(source, sep="\t")
+        required = {"review", "rating"}
+        if not required.issubset(frame.columns):
+            raise ValueError(f"{source.name} must contain {sorted(required)}.")
+        if not frame["rating"].between(1, 10).all():
+            raise ValueError(f"{source.name} contains missing or invalid ratings.")
+        frames[name] = frame
+
+    original_counts = {name: len(frame) for name, frame in frames.items()}
+    for name, frame in frames.items():
+        frame["text"] = frame["review"].map(clean)
+        frame["label"] = np.select(
+            [frame["rating"] <= 4, frame["rating"] <= 6], [0, 1], default=2
+        )
+        frames[name] = frame[frame["text"].str.len() > 0].drop_duplicates("text").copy()
+
+    train, test = frames["train"], frames["test"]
+    overlap = test["text"].isin(set(train["text"]))
+    removed_overlap = int(overlap.sum())
+    test = test[~overlap].copy()
+    training, validation = train_test_split(
+        train, test_size=0.15, stratify=train["label"], random_state=config.seed
+    )
+    splits = {
+        "train": stratified_subset(training, config.train_size, config.seed),
+        "validation": stratified_subset(
+            validation, config.validation_size, config.seed
+        ),
+        "test": stratified_subset(test, config.test_size, config.seed),
+    }
+    vocabulary = build_vocabulary(splits["train"]["text"])
+    summary = {
+        "original": original_counts,
+        "removed_test_overlap": removed_overlap,
+        "cleaned_train": len(train),
+        "cleaned_test": len(test),
+        "splits": {
+            name: {
+                "size": len(frame),
+                "classes": {
+                    str(label): int(count)
+                    for label, count in frame["label"]
+                    .value_counts()
+                    .sort_index()
+                    .items()
+                },
+            }
+            for name, frame in splits.items()
+        },
+        "vocabulary": len(vocabulary),
+        "max_length": MAX_LENGTH,
+        "labels": {"0": "negative (1-4)", "1": "neutral (5-6)", "2": "positive (7-10)"},
+        "train_truncation_fraction": float(
+            (splits["train"]["text"].str.split().str.len() > MAX_LENGTH).mean()
+        ),
+    }
+    return splits, vocabulary, summary
+
+
+def evaluate(
+    model: Classifier, dataset: TensorDataset, device: str
+) -> tuple[dict[str, float], list[int], list[int]]:
+    model.eval()
+    actual, predicted = [], []
+    with torch.no_grad():
+        for tokens, labels in DataLoader(dataset, batch_size=256):
+            predicted.extend(model(tokens.to(device)).argmax(dim=1).cpu().tolist())
+            actual.extend(labels.tolist())
+    metrics = {
+        "accuracy": accuracy_score(actual, predicted),
+        "macro_f1": f1_score(actual, predicted, average="macro", zero_division=0),
+    }
+    return metrics, actual, predicted
+
+
+def train_run(
+    kind: str,
+    learning_rate: float,
+    batch_size: int,
+    vocabulary_size: int,
+    datasets: dict[str, TensorDataset],
+    criterion: nn.Module,
+    config: ExperimentConfig,
+    device: str,
+) -> tuple[dict, dict]:
+    set_seed(config.seed)
+    model = Classifier(vocabulary_size, kind).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    history = []
+    best_state = None
+    best_score = -1.0
+    started = time.perf_counter()
+
+    for epoch in range(1, config.epochs + 1):
+        model.train()
+        total_loss = 0.0
+        for tokens, labels in DataLoader(
+            datasets["train"], batch_size=batch_size, shuffle=True
+        ):
+            tokens, labels = tokens.to(device), labels.to(device)
+            optimizer.zero_grad()
+            loss = criterion(model(tokens), labels)
+            loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+            total_loss += loss.item() * len(labels)
+
+        metrics, _, _ = evaluate(model, datasets["validation"], device)
+        epoch_result = {
+            "epoch": epoch,
+            "loss": total_loss / len(datasets["train"]),
+            **metrics,
+        }
+        history.append(epoch_result)
+        print(
+            f"{kind} lr={learning_rate} batch={batch_size} {epoch_result}", flush=True
+        )
+        if metrics["macro_f1"] > best_score:
+            best_score = metrics["macro_f1"]
+            best_state = copy.deepcopy(model.state_dict())
+        save_json(
+            config.output_dir,
+            "progress",
+            {
+                "model": kind,
+                "learning_rate": learning_rate,
+                "batch_size": batch_size,
+                "history": history,
+            },
+        )
+
+    record = {
+        "model": kind,
+        "learning_rate": learning_rate,
+        "batch_size": batch_size,
+        "optimizer": "Adam",
+        "initialization": "PyTorch defaults",
+        "seed": config.seed,
+        "epochs": config.epochs,
+        "embedding": 64,
+        "hidden": 64,
+        "parameters": sum(parameter.numel() for parameter in model.parameters()),
+        "best_validation_macro_f1": best_score,
+        "seconds": time.perf_counter() - started,
+        "history": history,
+    }
+    return record, best_state
+
+
+def run_experiments(config: ExperimentConfig) -> None:
+    config.output_dir.mkdir(parents=True, exist_ok=True)
+    set_seed(config.seed)
+    torch.set_num_threads(4)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    save_json(
+        config.output_dir,
+        "environment",
+        {
+            "python": platform.python_version(),
+            "torch": torch.__version__,
+            "device": device,
+            "gpu": torch.cuda.get_device_name(0) if device == "cuda" else None,
+        },
+    )
+    print(f"Training device: {device}", flush=True)
+    splits, vocabulary, summary = prepare_data(config)
+    save_json(config.output_dir, "vocabulary", vocabulary)
+    save_json(config.output_dir, "data_summary", summary)
+    for name, frame in splits.items():
+        frame.to_csv(config.output_dir / f"{name}_split.csv", index=False)
+
+    datasets = {
+        name: encode_dataset(frame, vocabulary) for name, frame in splits.items()
+    }
+    counts = np.bincount(splits["train"]["label"], minlength=3)
+    if (counts == 0).any():
+        raise ValueError("The training subset must contain all three classes.")
+    weights = torch.tensor(
+        len(splits["train"]) / (3 * counts), dtype=torch.float32, device=device
+    )
+    criterion = nn.CrossEntropyLoss(weight=weights)
+    runs, selected = [], {}
+    for kind in CELL_TYPES:
+        best_score = -1.0
+        for learning_rate, batch_size in HYPERPARAMETERS:
+            record, state = train_run(
+                kind,
+                learning_rate,
+                batch_size,
+                len(vocabulary),
+                datasets,
+                criterion,
+                config,
+                device,
+            )
+            runs.append(record)
+            save_json(config.output_dir, "experiments", runs)
+            if record["best_validation_macro_f1"] > best_score:
+                best_score = record["best_validation_macro_f1"]
+                selected[kind] = (record, state)
+        torch.save(selected[kind][1], config.output_dir / f"{kind}.pt")
+
+    # Select every configuration before inspecting held-out test performance.
+    final_results = []
+    for kind, (record, state) in selected.items():
+        model = Classifier(len(vocabulary), kind).to(device)
+        model.load_state_dict(state)
+        metrics, actual, predicted = evaluate(model, datasets["test"], device)
+        final_results.append(
+            {
+                "model": kind,
+                "learning_rate": record["learning_rate"],
+                "batch_size": record["batch_size"],
+                "parameters": record["parameters"],
+                **metrics,
+            }
+        )
+        save_json(
+            config.output_dir,
+            f"{kind}_classification",
+            classification_report(
+                actual,
+                predicted,
+                labels=[0, 1, 2],
+                target_names=CLASS_NAMES,
+                output_dict=True,
+                zero_division=0,
+            ),
+        )
+        pd.DataFrame(
+            {
+                "text": splits["test"]["text"].tolist(),
+                "actual": actual,
+                "predicted": predicted,
+            }
+        ).to_csv(config.output_dir / f"{kind}_predictions.csv", index=False)
+
+    save_json(config.output_dir, "final_results", final_results)
+    pd.DataFrame(final_results).to_csv(
+        config.output_dir / "comparison.csv", index=False
+    )
+    majority_class = splits["train"]["label"].mode()[0]
+    save_json(
+        config.output_dir,
+        "baseline",
+        {
+            "majority_accuracy": float(
+                (splits["test"]["label"] == majority_class).mean()
+            ),
+            "majority_macro_f1": f1_score(
+                splits["test"]["label"],
+                [majority_class] * len(splits["test"]),
+                average="macro",
+            ),
+        },
+    )
+    from style_figures import main as plot_results
+
+    plot_results(config.output_dir)
+    print(json.dumps(final_results, indent=2), flush=True)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-dir", type=Path, default=ROOT / "data")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "results")
+    parser.add_argument("--train-size", type=int, default=12_000)
+    parser.add_argument("--validation-size", type=int, default=2_000)
+    parser.add_argument("--test-size", type=int, default=4_000)
+    parser.add_argument("--epochs", type=int, default=4)
+    args = parser.parse_args()
+    if min(args.train_size, args.validation_size, args.test_size, args.epochs) < 1:
+        parser.error("Subset sizes and epoch count must be positive.")
+    run_experiments(ExperimentConfig(**vars(args)))
+
+
+if __name__ == "__main__":
+    main()

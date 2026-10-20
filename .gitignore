@@ -4,6 +4,7 @@
 rnn_drug_review/
 data/
 __pycache__/
+.ruff_cache/
 results/*.pt
 results/*_split.csv
 results/*_predictions.csv

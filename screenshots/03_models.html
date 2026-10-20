@@ -1,55 +1,77 @@
 <!doctype html><meta charset="utf-8"><style>body{font:18px Arial;background:#f5f7fb;color:#18314e;margin:40px;max-width:1160px}h1{font-size:34px}h2{font-size:24px;color:#216a8d}pre{background:white;border-left:4px solid #216a8d;padding:22px;white-space:pre-wrap;font:15px Consolas;line-height:1.5}img{max-width:100%;margin:20px 0}footer{color:#52677d;font-size:14px}</style><h1>RNN lab project / 03 models</h1><p>Zouhair Eouichak / TP B / UIR 2026-2027</p><h2>Equation, gradient and padding checks</h2><pre>vanilla : equations, gradients and padding passed
 cifg : equations, gradients and padding passed
 wmc : equations, gradients and padding passed
-</pre><h2>Manual cell implementation</h2><pre>&quot;&quot;&quot;Manual cells following the assignment equations; no built-in LSTM.&quot;&quot;&quot;
+</pre><h2>Manual cell implementation</h2><pre>&quot;&quot;&quot;Vanilla, CIFG and WMC recurrent cells for review classification.&quot;&quot;&quot;
+
 import torch
-from torch import nn
+from torch import Tensor, nn
+
+CELL_TYPES = (&quot;vanilla&quot;, &quot;cifg&quot;, &quot;wmc&quot;)
+RecurrentState = tuple[Tensor, Tensor]
+
 
 class Cell(nn.Module):
-    def __init__(self, input_size, hidden_size, kind):
+    &quot;&quot;&quot;Compute one recurrent step using the project appendix equations.&quot;&quot;&quot;
+
+    def __init__(self, input_size: int, hidden_size: int, kind: str) -&gt; None:
         super().__init__()
-        self.kind, self.hidden_size = kind, hidden_size
-        gates = 3 if kind == &#x27;cifg&#x27; else 4
-        self.x = nn.Linear(input_size, gates * hidden_size)
-        self.h = nn.Linear(hidden_size, gates * hidden_size, bias=False)
-        if kind == &#x27;wmc&#x27;:
+        if kind not in CELL_TYPES:
+            raise ValueError(f&quot;Unknown cell type {kind!r}; choose from {CELL_TYPES}.&quot;)
+        self.kind = kind
+        self.hidden_size = hidden_size
+        self.gate_count = 3 if kind == &quot;cifg&quot; else 4
+        self.x = nn.Linear(input_size, self.gate_count * hidden_size)
+        self.h = nn.Linear(hidden_size, self.gate_count * hidden_size, bias=False)
+        if kind == &quot;wmc&quot;:
             self.ci = nn.Linear(hidden_size, hidden_size, bias=False)
             self.cf = nn.Linear(hidden_size, hidden_size, bias=False)
             self.co = nn.Linear(hidden_size, hidden_size, bias=False)
 
-    def forward(self, x, state):
-        h, c = state
-        gates = (self.x(x) + self.h(h)).chunk(3 if self.kind == &#x27;cifg&#x27; else 4, -1)
-        if self.kind == &#x27;cifg&#x27;:
-            f, o, g = gates
-            f = f.sigmoid()
-            i = 1 - f
+    def forward(self, x: Tensor, state: RecurrentState) -&gt; RecurrentState:
+        hidden, memory = state
+        projections = (self.x(x) + self.h(hidden)).chunk(self.gate_count, dim=-1)
+        if self.kind == &quot;cifg&quot;:
+            forget_gate, output_gate, candidate = projections
+            forget_gate = forget_gate.sigmoid()
+            input_gate = 1 - forget_gate
         else:
-            i, f, o, g = gates
-            if self.kind == &#x27;wmc&#x27;:
-                i = i + self.ci(c).tanh()
-                f = f + self.cf(c).tanh()
-            i, f = i.sigmoid(), f.sigmoid()
-        c = f * c + i * g.tanh()
-        if self.kind == &#x27;wmc&#x27;:
-            o = o + self.co(c).tanh()
-        return o.sigmoid() * c.tanh(), c
+            input_gate, forget_gate, output_gate, candidate = projections
+            if self.kind == &quot;wmc&quot;:
+                input_gate = input_gate + self.ci(memory).tanh()
+                forget_gate = forget_gate + self.cf(memory).tanh()
+            input_gate = input_gate.sigmoid()
+            forget_gate = forget_gate.sigmoid()
+
+        memory = forget_gate * memory + input_gate * candidate.tanh()
+        if self.kind == &quot;wmc&quot;:
+            # The output gate reads the updated memory c_t.
+            output_gate = output_gate + self.co(memory).tanh()
+        hidden = output_gate.sigmoid() * memory.tanh()
+        return hidden, memory
+
 
 class Classifier(nn.Module):
-    def __init__(self, vocab_size, kind, embedding=64, hidden=64):
+    &quot;&quot;&quot;Classify a review using its last non-padding recurrent state.&quot;&quot;&quot;
+
+    def __init__(
+        self, vocab_size: int, kind: str, embedding: int = 64, hidden: int = 64
+    ) -&gt; None:
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, embedding, padding_idx=0)
         self.cell = Cell(embedding, hidden, kind)
         self.dropout = nn.Dropout(0.2)
         self.output = nn.Linear(hidden, 3)
 
-    def forward(self, tokens):
+    def forward(self, tokens: Tensor) -&gt; Tensor:
         embedded = self.embedding(tokens)
-        h = embedded.new_zeros(tokens.size(0), self.cell.hidden_size)
-        c = torch.zeros_like(h)
-        for t in range(tokens.size(1)):
-            hn, cn = self.cell(embedded[:, t], (h, c))
-            mask = (tokens[:, t] != 0).unsqueeze(1)
-            h, c = torch.where(mask, hn, h), torch.where(mask, cn, c)
-        return self.output(self.dropout(h))
+        hidden = embedded.new_zeros(tokens.size(0), self.cell.hidden_size)
+        memory = torch.zeros_like(hidden)
+        for position in range(tokens.size(1)):
+            next_hidden, next_memory = self.cell(
+                embedded[:, position], (hidden, memory)
+            )
+            valid_token = (tokens[:, position] != 0).unsqueeze(1)
+            hidden = torch.where(valid_token, next_hidden, hidden)
+            memory = torch.where(valid_token, next_memory, memory)
+        return self.output(self.dropout(hidden))
 </pre><footer>Browser screenshot of actual saved code, validation logs and experiment outputs. This page is an evidence viewer.</footer>
