@@ -7,12 +7,18 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+pdfmetrics.registerFont(TTFont('ReportArial',r'C:\Windows\Fonts\arial.ttf'))
+pdfmetrics.registerFont(TTFont('ReportArialBold',r'C:\Windows\Fonts\arialbd.ttf'))
+pdfmetrics.registerFontFamily('ReportArial',normal='ReportArial',bold='ReportArialBold',italic='ReportArial',boldItalic='ReportArialBold')
 R=Path(__file__).parent.resolve(); O=R/'output';O.mkdir(exist_ok=True)
 def load(n):return json.loads((R/'results'/f'{n}.json').read_text())
 data=load('data_summary');runs=load('experiments');final=load('final_results');baseline=load('baseline');env=load('environment')
-styles=getSampleStyleSheet(); styles.add(ParagraphStyle(name='Body',fontName='Helvetica',fontSize=10,leading=14,spaceAfter=9,textColor=colors.HexColor('#22364b')))
-styles.add(ParagraphStyle(name='Cover',fontName='Helvetica-Bold',fontSize=26,leading=32,alignment=TA_CENTER,textColor=colors.HexColor('#173955'),spaceAfter=18))
-styles.add(ParagraphStyle(name='CenterSmall',fontSize=11,leading=17,alignment=TA_CENTER))
+styles=getSampleStyleSheet(); styles.add(ParagraphStyle(name='Body',fontName='ReportArial',fontSize=10,leading=14.5,spaceAfter=10,textColor=colors.HexColor('#18364B')))
+styles['Heading2'].fontName='ReportArialBold';styles['Heading2'].fontSize=18;styles['Heading2'].leading=23;styles['Heading2'].textColor=colors.HexColor('#007F7A');styles['Heading2'].spaceAfter=13
+styles.add(ParagraphStyle(name='Cover',fontName='ReportArialBold',fontSize=31,leading=37,alignment=0,textColor=colors.HexColor('#102C40'),spaceAfter=18))
+styles.add(ParagraphStyle(name='CenterSmall',fontName='ReportArial',fontSize=11,leading=17,alignment=0,textColor=colors.HexColor('#526878')))
 story=[]
 def p(s):story.append(Paragraph(s,styles['Body']))
 def h(s):story.append(Paragraph(s,styles['Heading2']))
@@ -22,15 +28,16 @@ def img(n,w=475):
     with PI.open(path) as im: ratio=im.height/im.width
     story.append(Image(str(path),width=w,height=w*ratio))
 def table(rows,widths=None):
-    t=Table(rows,colWidths=widths,hAlign='LEFT');t.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#173955')),('TEXTCOLOR',(0,0),(-1,0),colors.white),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),('FONTSIZE',(0,0),(-1,-1),9),('BOTTOMPADDING',(0,0),(-1,-1),8),('TOPPADDING',(0,0),(-1,-1),8),('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.HexColor('#eef3f7'),colors.white]),('VALIGN',(0,0),(-1,-1),'MIDDLE')]));story.append(t);story.append(Spacer(1,10))
+    t=Table(rows,colWidths=widths,hAlign='LEFT');t.setStyle(TableStyle([('FONTNAME',(0,0),(-1,-1),'ReportArial'),('BACKGROUND',(0,0),(-1,0),colors.HexColor('#102C40')),('TEXTCOLOR',(0,0),(-1,0),colors.white),('FONTNAME',(0,0),(-1,0),'ReportArialBold'),('FONTSIZE',(0,0),(-1,-1),9),('BOTTOMPADDING',(0,0),(-1,-1),8),('TOPPADDING',(0,0),(-1,-1),8),('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.HexColor('#EFF3EF'),colors.white]),('VALIGN',(0,0),(-1,-1),'MIDDLE')]));story.append(t);story.append(Spacer(1,13))
 def page():story.append(PageBreak())
 logo=R/'assets/UIR_logo.png'
 from PIL import Image as PI
 with PI.open(logo) as im: ratio=im.height/im.width
-story.append(Image(str(logo),width=180,height=180*ratio));story.append(Spacer(1,35))
+story.append(Image(str(logo),width=225,height=225*ratio,hAlign='LEFT'));story.append(Spacer(1,42))
+story.append(Paragraph('LAB PROJECT / RECURRENT NEURAL NETWORKS',ParagraphStyle(name='Kicker',fontName='ReportArialBold',fontSize=10,textColor=colors.HexColor('#007F7A'),spaceAfter=15)))
 story.append(Paragraph('Drug Review Sentiment<br/>with Manual LSTM Cells',styles['Cover']))
 story.append(Paragraph('Advanced Natural Language Processing<br/>Lab Project on Recurrent Neural Networks<br/>University year 2026/2027',styles['CenterSmall']))
-story.append(Spacer(1,25));story.append(Paragraph('Zouhair Eouichak<br/>Aymane El Youssi<br/>Malak Bartal<br/>Sara Baalla<br/>Group: TP B<br/>20 October 2026',styles['CenterSmall']));story.append(Spacer(1,25))
+story.append(Spacer(1,25));story.append(Paragraph('<b>Zouhair Eouichak</b> &nbsp; / &nbsp; Aymane El Youssi<br/>Malak Bartal &nbsp; / &nbsp; Sara Baalla<br/>Group TP B &nbsp; / &nbsp; 20 October 2026',styles['CenterSmall']));story.append(Spacer(1,35))
 h('Task and study design')
 p('This project predicts rating-derived sentiment from patient review text and compares a vanilla LSTM with two manually implemented variants: Coupled Input-Forget Gate (CIFG) and Working Memory Connections (WMC). The comparison uses identical data partitions and a common evaluation protocol.')
 p('The study evaluates learning rate and batch size across nine training runs. Each architecture uses the configuration and checkpoint with the highest validation macro-F1. Accuracy and macro-F1 on a held-out test subset measure final performance.')
@@ -65,6 +72,9 @@ p(f"The configuration with the highest validation macro-F1 belongs to {chosen['m
 p('<b>Limitations and improvements:</b> use several seeds, train longer with early stopping, increase sequence length and data size, and compare pretrained embeddings. Inspect ambiguous ratings, negation and mixed sentiment. Consider grouping by drug or stronger duplicate detection when testing generalization. The present experiment uses rating labels and a limited training budget, so it cannot establish broad superiority of any cell.')
 p('<b>References:</b> Project Guidelines_RNN_2627, appendix equations. UCI Drug Review Dataset (Drugs.com), dataset 462, Kallumadi and Grasser (2018). Download mirror: github.com/semnan-university-ai/Drug-Review-Dataset. CIFG reading: arxiv.org/abs/1503.04069. WMC reading: doi/source identifier S0893608021003439.')
 def footer(c,doc):
-    c.setFont('Helvetica',8);c.setFillColor(colors.HexColor('#5d7185'));c.drawString(48,25,'UIR / Advanced NLP / TP B');c.drawRightString(A4[0]-48,25,str(doc.page))
-SimpleDocTemplate(str(O/'RNN_Report_Zouhair_Eouichak.pdf'),pagesize=A4,rightMargin=48,leftMargin=48,topMargin=35,bottomMargin=42).build(story,onFirstPage=footer,onLaterPages=footer)
+    c.setStrokeColor(colors.HexColor('#C7D5D2'));c.setLineWidth(.5);c.line(48,39,A4[0]-48,39)
+    c.setFont('ReportArial',8);c.setFillColor(colors.HexColor('#526878'));c.drawString(48,25,'UIR / ADVANCED NLP / TP B');c.drawRightString(A4[0]-48,25,f'{doc.page:02d} / 05')
+    if doc.page>1:
+        c.setFont('ReportArialBold',8);c.setFillColor(colors.HexColor('#007F7A'));c.drawString(48,A4[1]-30,'DRUG REVIEW SENTIMENT / MANUAL LSTM COMPARISON')
+SimpleDocTemplate(str(O/'RNN_Report_Zouhair_Eouichak.pdf'),title='Drug Review Sentiment with Manual LSTM Cells',author='Zouhair Eouichak; Aymane El Youssi; Malak Bartal; Sara Baalla',pagesize=A4,rightMargin=48,leftMargin=48,topMargin=54,bottomMargin=50).build(story,onFirstPage=footer,onLaterPages=footer)
 print('Report created')
