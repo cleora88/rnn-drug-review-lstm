@@ -16,8 +16,8 @@ py -3.12 -m venv .venv
 .venv\Scripts\python -m pip install torch --index-url https://download.pytorch.org/whl/cu128
 .venv\Scripts\python -m pip install -r requirements.txt
 New-Item -ItemType Directory -Force data
-Invoke-WebRequest 'https://archive.ics.uci.edu/ml/machine-learning-databases/00462/drugsCom_raw.zip' -OutFile data/drugs.zip
-Expand-Archive data/drugs.zip data -Force
+Invoke-WebRequest 'https://raw.githubusercontent.com/semnan-university-ai/Drug-Review-Dataset/master/drugsComTrain_raw.tsv' -OutFile data/drugsComTrain_raw.tsv
+Invoke-WebRequest 'https://raw.githubusercontent.com/semnan-university-ai/Drug-Review-Dataset/master/drugsComTest_raw.tsv' -OutFile data/drugsComTest_raw.tsv
 .venv\Scripts\python test_cells.py
 .venv\Scripts\python run.py
 ```
@@ -58,6 +58,6 @@ One random seed and a small learning-rate grid provide a limited comparison. Rep
 ## Submission checklist
 - [ ] Add all 5-6 team members from the same lab group.
 - [ ] Review experiments, report and slides; rehearse a 10-minute English talk.
-- [ ] Publish code to a public GitHub repository and verify the link.
+- [x] Public repository: https://github.com/cleora88/rnn-drug-review-lstm
 - [ ] Submit before the end of 25 October 2026: https://forms.cloud.microsoft/r/78AEQ7pj2d
 - [ ] Attend lab 6 defense.
