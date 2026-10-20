@@ -1,7 +1,7 @@
 # Comparing manual LSTM cells on drug reviews
 
 Advanced Natural Language Processing, UIR, 2026/2027.
-Student: Zouhair Eouichak, TP B. Add the remaining team members before submission (5-6 required).
+Team (TP B): Zouhair Eouichak, Aymane El Youssi, Malak Bartal, Sara Baalla. The guidelines require 5-6 members; confirm the remaining member(s) before submission.
 
 ## Task
 Predict rating-derived sentiment from review text only: negative (1-4), neutral (5-6), positive (7-10).

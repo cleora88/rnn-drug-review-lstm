@@ -12,7 +12,7 @@ with zipfile.ZipFile(dest,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
             for base,dirs,files in os.walk(p):
                 for name in files:
                     f=Path(base)/name
-                    if name.startswith('00_'):continue
+                    if name.startswith('00_') or name.startswith('RNN_Presentation_Team'):continue
                     z.write(f,'rnn_drug_review/'+f.relative_to(R).as_posix())
     for source,destination in [('.build/build_slides.mjs','tools/build_slides.mjs'),('.build/slides-validation.json','validation/slides-validation.json')]:
         f=R/source
